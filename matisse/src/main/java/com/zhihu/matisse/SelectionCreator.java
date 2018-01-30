@@ -28,12 +28,14 @@ import android.support.v4.app.Fragment;
 import com.zhihu.matisse.engine.ImageEngine;
 import com.zhihu.matisse.filter.Filter;
 import com.zhihu.matisse.internal.entity.CaptureStrategy;
+import com.zhihu.matisse.internal.entity.Ratio;
 import com.zhihu.matisse.internal.entity.SelectionSpec;
 import com.zhihu.matisse.ui.MatisseActivity;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND;
@@ -302,4 +304,29 @@ public final class SelectionCreator {
         }
     }
 
+
+    public SelectionCreator maxWidth(Double maxWidth) {
+        mSelectionSpec.maxWidth = maxWidth;
+        return this;
+    }
+    public SelectionCreator maxHeight(Double maxHeight) {
+        mSelectionSpec.maxHeight = maxHeight;
+        return this;
+    }
+    public SelectionCreator wideRatios(List<Ratio> wideRatios) {
+        mSelectionSpec.wideRatios = wideRatios;
+        return this;
+    }
+    public SelectionCreator tallRatios(List<Ratio> tallRatios) {
+        mSelectionSpec.tallRatios = tallRatios;
+        return this;
+    }
+    public SelectionCreator maxWideRatio(Ratio maxWideRatio) {
+        mSelectionSpec.maxWideRatio = maxWideRatio;
+        return this;
+    }
+    public SelectionCreator minTallRatio(Ratio minTallRatio) {
+        mSelectionSpec.minTallRatio = minTallRatio;
+        return this;
+    }
 }

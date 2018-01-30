@@ -16,12 +16,14 @@
 package com.zhihu.matisse.ui;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -49,9 +51,11 @@ import com.zhihu.matisse.internal.ui.SelectedPreviewActivity;
 import com.zhihu.matisse.internal.ui.adapter.AlbumMediaAdapter;
 import com.zhihu.matisse.internal.ui.adapter.AlbumsAdapter;
 import com.zhihu.matisse.internal.ui.widget.AlbumsSpinner;
+import com.zhihu.matisse.internal.utils.CompressionUtils;
 import com.zhihu.matisse.internal.utils.MediaStoreCompat;
 import com.zhihu.matisse.internal.utils.PathUtils;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -237,13 +241,7 @@ public class MatisseActivity extends AppCompatActivity implements
             intent.putExtra(BasePreviewActivity.EXTRA_DEFAULT_BUNDLE, mSelectedCollection.getDataWithBundle());
             startActivityForResult(intent, REQUEST_CODE_PREVIEW);
         } else if (v.getId() == R.id.button_apply) {
-            Intent result = new Intent();
-            ArrayList<Uri> selectedUris = (ArrayList<Uri>) mSelectedCollection.asListOfUri();
-            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
-            ArrayList<String> selectedPaths = (ArrayList<String>) mSelectedCollection.asListOfString();
-            result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
-            setResult(RESULT_OK, result);
-            finish();
+            compressionAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
 
@@ -330,4 +328,48 @@ public class MatisseActivity extends AppCompatActivity implements
             mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
         }
     }
+
+    AsyncTask<Void, Void, Void> compressionAsyncTask = new AsyncTask<Void, Void, Void>() {
+        private ProgressDialog progressDialog = null;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            progressDialog = ProgressDialog.show(MatisseActivity.this, "Carousell Pro", "Loading...", true, false);
+            progressDialog.show();
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+
+            for (Item item : mSelectedCollection.asList()) {
+                try {
+                    CompressionUtils.compressImage(MatisseActivity.this, mSpec, item);
+                } catch (IOException e) {
+
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+            progressDialog.dismiss();
+            Intent result = new Intent();
+            ArrayList<Uri> selectedUris = (ArrayList<Uri>) mSelectedCollection.asListOfUri();
+            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
+            ArrayList<String> selectedPaths = (ArrayList<String>) mSelectedCollection.asListOfString();
+            result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
+            setResult(RESULT_OK, result);
+            finish();
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+        }
+    };
 }

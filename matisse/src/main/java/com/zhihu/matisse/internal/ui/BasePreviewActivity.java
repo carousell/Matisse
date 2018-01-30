@@ -133,10 +133,11 @@ public abstract class BasePreviewActivity extends AppCompatActivity implements V
         if (v.getId() == R.id.button_back) {
             onBackPressed();
         } else if (v.getId() == R.id.button_apply) {
-            sendBackResult(true);
-            finish();
+//            compressionAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
+
+
 
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
@@ -212,4 +213,50 @@ public abstract class BasePreviewActivity extends AppCompatActivity implements V
         IncapableCause.handleCause(this, cause);
         return cause == null;
     }
+
+//    AsyncTask<Void, Void, Void> compressionAsyncTask = new AsyncTask<Void, Void, Void>() {
+//        private ProgressDialog progressDialog = null;
+//
+//        @Override
+//        protected void onPreExecute() {
+//            super.onPreExecute();
+//
+//            progressDialog = ProgressDialog.show(BasePreviewActivity.this, "Carousell Pro", "Loading...", true, false);
+//            progressDialog.show();
+//        }
+//
+//        @Override
+//        protected Void doInBackground(Void... params) {
+//
+//            for (Item item: mSelectedCollection.asList()) {
+//                try {
+//                    CompressionUtils.compressImage(mSpec, item);
+//                } catch (IOException e) {
+//
+//                }
+//            }
+//
+//            try {
+//                Thread.sleep(3000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//
+//            return null;
+//        }
+//
+//        @Override
+//        protected void onPostExecute(Void aVoid) {
+//            super.onPostExecute(aVoid);
+//            progressDialog.dismiss();
+//            sendBackResult(true);
+//            finish();
+//        }
+//
+//        @Override
+//        protected void onProgressUpdate(Void... values) {
+//            super.onProgressUpdate(values);
+//        }
+//    };
+
 }

@@ -16,10 +16,14 @@
 package com.zhihu.matisse.internal.ui.adapter;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.res.TypedArray;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.provider.MediaStore;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -30,12 +34,14 @@ import android.widget.TextView;
 
 import com.zhihu.matisse.R;
 import com.zhihu.matisse.internal.entity.Album;
+import com.zhihu.matisse.internal.entity.IncapableCause;
 import com.zhihu.matisse.internal.entity.Item;
 import com.zhihu.matisse.internal.entity.SelectionSpec;
-import com.zhihu.matisse.internal.entity.IncapableCause;
 import com.zhihu.matisse.internal.model.SelectedItemCollection;
 import com.zhihu.matisse.internal.ui.widget.CheckView;
 import com.zhihu.matisse.internal.ui.widget.MediaGrid;
+
+import java.io.IOException;
 
 public class AlbumMediaAdapter extends
         RecyclerViewCursorAdapter<RecyclerView.ViewHolder> implements
@@ -169,10 +175,7 @@ public class AlbumMediaAdapter extends
         if (mSelectionSpec.countable) {
             int checkedNum = mSelectedCollection.checkedNumOf(item);
             if (checkedNum == CheckView.UNCHECKED) {
-                if (assertAddSelection(holder.itemView.getContext(), item)) {
-                    mSelectedCollection.add(item);
-                    notifyCheckStateChanged();
-                }
+                checkAddItem(holder.itemView.getContext(), item);
             } else {
                 mSelectedCollection.remove(item);
                 notifyCheckStateChanged();
@@ -182,10 +185,91 @@ public class AlbumMediaAdapter extends
                 mSelectedCollection.remove(item);
                 notifyCheckStateChanged();
             } else {
-                if (assertAddSelection(holder.itemView.getContext(), item)) {
-                    mSelectedCollection.add(item);
-                    notifyCheckStateChanged();
-                }
+                checkAddItem(holder.itemView.getContext(), item);
+            }
+        }
+    }
+
+    private void checkAddItem(Context context, final Item item) {
+        if (assertAddSelection(context, item)) {
+
+            // reset before crop or not
+            item.cropUrl = null;
+            item.cropWidth = null;
+            item.cropHeight = null;
+
+            boolean isTooWide = false;
+            boolean isTooTall = false;
+
+            Bitmap bitmap = null;
+            try {
+                bitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), item.getContentUri());
+            } catch (IOException e) {
+            }
+
+            if (bitmap==null) {
+                return;
+            }
+
+            double originalHeight = bitmap.getHeight();
+            double originalWidth = bitmap.getWidth();
+            double originalRatio = originalWidth/originalHeight;
+
+            double targetWidth = bitmap.getWidth();
+            double targetHeight = bitmap.getHeight();
+            Double targetRatio = null;
+            boolean isCrop = false;
+
+            // Need crop?
+            if (originalRatio > 1) { // width > height
+                targetRatio = mSelectionSpec.maxWideRatio.width / mSelectionSpec.maxWideRatio.height;
+            } else if (originalRatio < 1) {
+                targetRatio = mSelectionSpec.minTallRatio.width / mSelectionSpec.minTallRatio.height;
+            }
+
+            if (targetRatio!=null && targetRatio > originalRatio) {
+                targetHeight = originalWidth / targetRatio;
+                targetWidth = originalWidth;
+                isTooTall = true;
+            } else if (targetRatio!=null && targetRatio < originalRatio) {
+                targetHeight = originalHeight;
+                targetWidth = originalHeight * targetRatio;
+                isTooWide = true;
+            }
+
+            String title = "";
+            String message = "";
+            if (isTooWide) {
+                title = "Really wide image?";
+                message = "For better experience, we currently don't support images that are this wide. Better crop it before you upload";
+            } else if (isTooTall) {
+                title = "Really tall image?";
+                message = "For better experience, we currently don't support images that are this tall. Better crop it before you upload";
+            }
+            if (isTooTall || isTooWide) {
+                item.cropWidth = targetWidth;
+                item.cropHeight = targetHeight;
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                builder.setTitle(title);
+                builder.setMessage(message);
+                builder.setPositiveButton("Centre Crop it", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        mSelectedCollection.add(item);
+                        notifyCheckStateChanged();
+                    }
+                });
+                builder.setNegativeButton("Pick another", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                });
+                builder.show();
+            } else {
+                mSelectedCollection.add(item);
+                notifyCheckStateChanged();
             }
         }
     }

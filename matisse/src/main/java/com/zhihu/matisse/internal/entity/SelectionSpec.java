@@ -48,6 +48,15 @@ public final class SelectionSpec {
     public float thumbnailScale;
     public ImageEngine imageEngine;
 
+
+    public Double maxWidth = null;
+    public Double maxHeight = null;
+    public List<Ratio> wideRatios = null;
+    public List<Ratio> tallRatios = null;
+
+    public Ratio maxWideRatio = null;
+    public Ratio minTallRatio = null;
+
     private SelectionSpec() {
     }
 
@@ -78,6 +87,14 @@ public final class SelectionSpec {
         gridExpectedSize = 0;
         thumbnailScale = 0.5f;
         imageEngine = new GlideEngine();
+
+        maxWidth = null;
+        maxHeight = null;
+        wideRatios = null;
+        tallRatios = null;
+
+        maxWideRatio = null;
+        minTallRatio = null;
     }
 
     public boolean singleSelectionModeEnabled() {
