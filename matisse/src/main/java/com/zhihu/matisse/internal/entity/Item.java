@@ -74,9 +74,9 @@ public class Item implements Parcelable {
         uri = source.readParcelable(Uri.class.getClassLoader());
         size = source.readLong();
         duration = source.readLong();
-        cropWidth = source.readDouble();
-        cropHeight = source.readDouble();
-        cropUrl = source.readString();
+//        cropWidth = source.readDouble();
+//        cropHeight = source.readDouble();
+//        cropUrl = source.readString();
     }
 
     public static Item valueOf(Cursor cursor) {
@@ -98,9 +98,15 @@ public class Item implements Parcelable {
         dest.writeParcelable(uri, 0);
         dest.writeLong(size);
         dest.writeLong(duration);
-        dest.writeDouble(cropWidth);
-        dest.writeDouble(cropHeight);
-        dest.writeString(cropUrl);
+//        if (cropWidth!=null) {
+//            dest.writeDouble(cropWidth);
+//        }
+//        if (cropHeight!=null) {
+//            dest.writeDouble(cropHeight);
+//        }
+//        if (cropUrl!=null) {
+//            dest.writeString(cropUrl);
+//        }
     }
 
     public Uri getContentUri() {
@@ -164,15 +170,15 @@ public class Item implements Parcelable {
         result = 31 * result + uri.hashCode();
         result = 31 * result + Long.valueOf(size).hashCode();
         result = 31 * result + Long.valueOf(duration).hashCode();
-        if (cropWidth!=null) {
-            result = 31 * result + cropWidth.hashCode();
-        }
-        if (cropHeight != null) {
-            result = 31 * result + cropHeight.hashCode();
-        }
-        if (cropUrl!=null) {
-            result = 31 * result + cropUrl.hashCode();
-        }
+//        if (cropWidth!=null) {
+//            result = 31 * result + cropWidth.hashCode();
+//        }
+//        if (cropHeight != null) {
+//            result = 31 * result + cropHeight.hashCode();
+//        }
+//        if (cropUrl!=null) {
+//            result = 31 * result + cropUrl.hashCode();
+//        }
         return result;
     }
 }

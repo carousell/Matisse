@@ -70,6 +70,7 @@ public class MatisseActivity extends AppCompatActivity implements
 
     public static final String EXTRA_RESULT_SELECTION = "extra_result_selection";
     public static final String EXTRA_RESULT_SELECTION_PATH = "extra_result_selection_path";
+    public static final String EXTRA_RESULT_SELECTION_ITEM = "extra_result_selection_item";
     private static final int REQUEST_CODE_PREVIEW = 23;
     private static final int REQUEST_CODE_CAPTURE = 24;
     private final AlbumCollection mAlbumCollection = new AlbumCollection();
@@ -359,10 +360,15 @@ public class MatisseActivity extends AppCompatActivity implements
             super.onPostExecute(aVoid);
             progressDialog.dismiss();
             Intent result = new Intent();
+
             ArrayList<Uri> selectedUris = (ArrayList<Uri>) mSelectedCollection.asListOfUri();
             result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
+
             ArrayList<String> selectedPaths = (ArrayList<String>) mSelectedCollection.asListOfString();
             result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
+
+            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION_ITEM, (ArrayList<Item>)mSelectedCollection.asList());
+
             setResult(RESULT_OK, result);
             finish();
         }

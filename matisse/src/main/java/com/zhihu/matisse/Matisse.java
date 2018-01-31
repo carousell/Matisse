@@ -21,6 +21,7 @@ import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 
+import com.zhihu.matisse.internal.entity.Item;
 import com.zhihu.matisse.ui.MatisseActivity;
 
 import java.lang.ref.WeakReference;
@@ -83,6 +84,10 @@ public final class Matisse {
      */
     public static List<Uri> obtainResult(Intent data) {
         return data.getParcelableArrayListExtra(MatisseActivity.EXTRA_RESULT_SELECTION);
+    }
+
+    public static List<Item> obtainItemResult(Intent data) {
+        return data.getParcelableArrayListExtra(MatisseActivity.EXTRA_RESULT_SELECTION_ITEM);
     }
 
     /**

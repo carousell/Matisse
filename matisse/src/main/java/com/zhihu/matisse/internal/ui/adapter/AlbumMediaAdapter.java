@@ -221,9 +221,9 @@ public class AlbumMediaAdapter extends
             boolean isCrop = false;
 
             // Need crop?
-            if (originalRatio > 1) { // width > height
+            if (originalRatio > 1 && mSelectionSpec.maxWideRatio!=null) { // width > height
                 targetRatio = mSelectionSpec.maxWideRatio.width / mSelectionSpec.maxWideRatio.height;
-            } else if (originalRatio < 1) {
+            } else if (originalRatio < 1 && mSelectionSpec.minTallRatio!=null) {
                 targetRatio = mSelectionSpec.minTallRatio.width / mSelectionSpec.minTallRatio.height;
             }
 
