@@ -133,6 +133,9 @@ public class MatisseActivity extends AppCompatActivity implements
         mEmptyView = findViewById(R.id.empty_view);
 
         mSelectedCollection.onCreate(savedInstanceState);
+        for (int i=0; i<mSpec.selectedImageIds.size(); i++){
+            mSelectedCollection.add(new Item(Long.parseLong(mSpec.selectedImageIds.get(i)), MimeType.JPEG.toString(),0,0));
+        }
         updateBottomToolbar();
 
         mAlbumsAdapter = new AlbumsAdapter(this, null, false);
