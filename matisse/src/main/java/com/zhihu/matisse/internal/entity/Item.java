@@ -51,7 +51,15 @@ public class Item implements Parcelable {
     public Double cropHeight = null;
     public String cropUrl = null;
 
-    private Item(long id, String mimeType, long size, long duration) {
+    public Item(Uri uri) {
+        this.id = 0;
+        this.mimeType = MimeType.JPEG.toString();
+        this.uri = uri;
+        this.size = 0;
+        this.duration = 0;
+    }
+
+    public Item(long id, String mimeType, long size, long duration) {
         this.id = id;
         this.mimeType = mimeType;
         Uri contentUri;
@@ -151,13 +159,13 @@ public class Item implements Parcelable {
         }
 
         Item other = (Item) obj;
-        return id == other.id
-                && (mimeType != null && mimeType.equals(other.mimeType)
-                    || (mimeType == null && other.mimeType == null))
-                && (uri != null && uri.equals(other.uri)
-                    || (uri == null && other.uri == null))
-                && size == other.size
-                && duration == other.duration;
+        return id == other.id;
+//                && (mimeType != null && mimeType.equals(other.mimeType)
+//                    || (mimeType == null && other.mimeType == null))
+//                && (uri != null && uri.equals(other.uri)
+//                    || (uri == null && other.uri == null))
+//                && size == other.size
+//                && duration == other.duration;
     }
 
     @Override

@@ -240,11 +240,11 @@ public class AlbumMediaAdapter extends
             String title = "";
             String message = "";
             if (isTooWide) {
-                title = "Really wide image?";
-                message = "For better experience, we currently don't support images that are this wide. Better crop it before you upload";
+                title = context.getString(R.string.error_title_wide_image);
+                message = context.getString(R.string.error_message_wide_image);
             } else if (isTooTall) {
-                title = "Really tall image?";
-                message = "For better experience, we currently don't support images that are this tall. Better crop it before you upload";
+                title = context.getString(R.string.error_title_tall_image);
+                message = context.getString(R.string.error_message_tall_image);
             }
             if (isTooTall || isTooWide) {
                 item.cropWidth = targetWidth;
@@ -253,14 +253,14 @@ public class AlbumMediaAdapter extends
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
                 builder.setTitle(title);
                 builder.setMessage(message);
-                builder.setPositiveButton("Centre Crop it", new DialogInterface.OnClickListener() {
+                builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         mSelectedCollection.add(item);
                         notifyCheckStateChanged();
                     }
                 });
-                builder.setNegativeButton("Pick another", new DialogInterface.OnClickListener() {
+                builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
 

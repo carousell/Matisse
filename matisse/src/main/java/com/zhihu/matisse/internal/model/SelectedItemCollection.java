@@ -150,6 +150,14 @@ public class SelectedItemCollection {
         return uris;
     }
 
+    public List<String> asListOfIds() {
+        List<String> ids = new ArrayList<>();
+        for (Item item : mItems) {
+            ids.add(Long.toString(item.id));
+        }
+        return ids;
+    }
+
     public List<String> asListOfString() {
         List<String> paths = new ArrayList<>();
         for (Item item : mItems) {

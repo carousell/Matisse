@@ -57,6 +57,8 @@ public final class SelectionSpec {
     public Ratio maxWideRatio = null;
     public Ratio minTallRatio = null;
 
+    public List<String> selectedImageIds = null;
+
     private SelectionSpec() {
     }
 
@@ -95,6 +97,8 @@ public final class SelectionSpec {
 
         maxWideRatio = null;
         minTallRatio = null;
+
+        selectedImageIds = null;
     }
 
     public boolean singleSelectionModeEnabled() {

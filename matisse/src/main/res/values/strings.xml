@@ -32,4 +32,11 @@
     <string name="error_file_type">Unsupported file type</string>
     <string name="error_type_conflict">Can\'t select images and videos at the same time</string>
     <string name="error_no_video_activity">No App found supporting video preview</string>
+
+    <string name="error_title_wide_image">Really wide image?</string>
+    <string name="error_title_tall_image">Really tall image?</string>
+    <string name="error_message_wide_image">For better experience, we currently don\'t support images that are this wide. Better crop it before you upload</string>
+    <string name="error_message_tall_image">For better experience, we currently don\'t support images that are this tall. Better crop it before you upload</string>
+    <string name="error_button_centre_crop">Centre Crop it</string>
+    <string name="error_button_pick_another">Pick another</string>
 </resources>

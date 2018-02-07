@@ -17,9 +17,12 @@ package com.zhihu.matisse.ui;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.TypedArray;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -28,9 +31,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
@@ -38,6 +43,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.TextView;
 
+import com.zhihu.matisse.MimeType;
 import com.zhihu.matisse.R;
 import com.zhihu.matisse.internal.entity.Album;
 import com.zhihu.matisse.internal.entity.Item;
@@ -46,15 +52,16 @@ import com.zhihu.matisse.internal.model.AlbumCollection;
 import com.zhihu.matisse.internal.model.SelectedItemCollection;
 import com.zhihu.matisse.internal.ui.AlbumPreviewActivity;
 import com.zhihu.matisse.internal.ui.BasePreviewActivity;
+import com.zhihu.matisse.internal.ui.CompressionAsyncTask;
 import com.zhihu.matisse.internal.ui.MediaSelectionFragment;
 import com.zhihu.matisse.internal.ui.SelectedPreviewActivity;
 import com.zhihu.matisse.internal.ui.adapter.AlbumMediaAdapter;
 import com.zhihu.matisse.internal.ui.adapter.AlbumsAdapter;
 import com.zhihu.matisse.internal.ui.widget.AlbumsSpinner;
-import com.zhihu.matisse.internal.utils.CompressionUtils;
 import com.zhihu.matisse.internal.utils.MediaStoreCompat;
 import com.zhihu.matisse.internal.utils.PathUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -66,7 +73,7 @@ public class MatisseActivity extends AppCompatActivity implements
         AlbumCollection.AlbumCallbacks, AdapterView.OnItemSelectedListener,
         MediaSelectionFragment.SelectionProvider, View.OnClickListener,
         AlbumMediaAdapter.CheckStateListener, AlbumMediaAdapter.OnMediaClickListener,
-        AlbumMediaAdapter.OnPhotoCapture {
+        AlbumMediaAdapter.OnPhotoCapture, CompressionAsyncTask.CompressionCallback {
 
     public static final String EXTRA_RESULT_SELECTION = "extra_result_selection";
     public static final String EXTRA_RESULT_SELECTION_PATH = "extra_result_selection_path";
@@ -84,6 +91,8 @@ public class MatisseActivity extends AppCompatActivity implements
     private TextView mButtonApply;
     private View mContainer;
     private View mEmptyView;
+
+    private ProgressDialog progressDialog = null;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -135,6 +144,12 @@ public class MatisseActivity extends AppCompatActivity implements
         mAlbumCollection.onCreate(this, this);
         mAlbumCollection.onRestoreInstanceState(savedInstanceState);
         mAlbumCollection.loadAlbums();
+
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Carousell Pro");
+        progressDialog.setMessage("Loading...");
+        progressDialog.setCancelable(false);
+        progressDialog.setIndeterminate(true);
     }
 
     @Override
@@ -168,30 +183,30 @@ public class MatisseActivity extends AppCompatActivity implements
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        ArrayList<Uri> selectedUris;
+        ArrayList<String> selectedPaths;
+        ArrayList<Item> items;
+
         if (resultCode != RESULT_OK)
             return;
 
         if (requestCode == REQUEST_CODE_PREVIEW) {
             Bundle resultBundle = data.getBundleExtra(BasePreviewActivity.EXTRA_RESULT_BUNDLE);
-            ArrayList<Item> selected = resultBundle.getParcelableArrayList(SelectedItemCollection.STATE_SELECTION);
+            items = resultBundle.getParcelableArrayList(SelectedItemCollection.STATE_SELECTION);
             int collectionType = resultBundle.getInt(SelectedItemCollection.STATE_COLLECTION_TYPE,
                     SelectedItemCollection.COLLECTION_UNDEFINED);
             if (data.getBooleanExtra(BasePreviewActivity.EXTRA_RESULT_APPLY, false)) {
-                Intent result = new Intent();
-                ArrayList<Uri> selectedUris = new ArrayList<>();
-                ArrayList<String> selectedPaths = new ArrayList<>();
-                if (selected != null) {
-                    for (Item item : selected) {
+                selectedUris = new ArrayList<>();
+                selectedPaths = new ArrayList<>();
+                if (items != null) {
+                    for (Item item : items) {
                         selectedUris.add(item.getContentUri());
                         selectedPaths.add(PathUtils.getPath(this, item.getContentUri()));
                     }
                 }
-                result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
-                result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
-                setResult(RESULT_OK, result);
-                finish();
+                new CompressionAsyncTask(progressDialog, this, mSelectedCollection, this, mSpec).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             } else {
-                mSelectedCollection.overwrite(selected, collectionType);
+                mSelectedCollection.overwrite(items, collectionType);
                 Fragment mediaSelectionFragment = getSupportFragmentManager().findFragmentByTag(
                         MediaSelectionFragment.class.getSimpleName());
                 if (mediaSelectionFragment instanceof MediaSelectionFragment) {
@@ -203,19 +218,114 @@ public class MatisseActivity extends AppCompatActivity implements
             // Just pass the data back to previous calling Activity.
             Uri contentUri = mMediaStoreCompat.getCurrentPhotoUri();
             String path = mMediaStoreCompat.getCurrentPhotoPath();
-            ArrayList<Uri> selected = new ArrayList<>();
-            selected.add(contentUri);
-            ArrayList<String> selectedPath = new ArrayList<>();
-            selectedPath.add(path);
-            Intent result = new Intent();
-            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selected);
-            result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPath);
-            setResult(RESULT_OK, result);
+            selectedUris = new ArrayList<>();
+            selectedUris.add(contentUri);
+            selectedPaths = new ArrayList<>();
+            selectedPaths.add(path);
+
+            galleryAddPic(path);
+
+            long id = Long.parseLong(contentUri.getLastPathSegment());
+            Item item = new Item(id, MimeType.JPEG.toString(), 0, 0);
+            checkAddItem(this, item);
+
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP)
                 MatisseActivity.this.revokeUriPermission(contentUri,
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            finish();
         }
+    }
+
+    private void checkAddItem(Context context, final Item item) {
+        // reset before crop or not
+        item.cropUrl = null;
+        item.cropWidth = null;
+        item.cropHeight = null;
+
+        boolean isTooWide = false;
+        boolean isTooTall = false;
+
+        Bitmap bitmap = null;
+        try {
+            bitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), item.getContentUri());
+        } catch (IOException e) {
+        }
+
+        if (bitmap == null) {
+            return;
+        }
+
+        double originalHeight = bitmap.getHeight();
+        double originalWidth = bitmap.getWidth();
+        double originalRatio = originalWidth / originalHeight;
+
+        double targetWidth = bitmap.getWidth();
+        double targetHeight = bitmap.getHeight();
+        Double targetRatio = null;
+        boolean isCrop = false;
+
+        // Need crop?
+        if (originalRatio > 1 && mSpec.maxWideRatio != null) { // width > height
+            targetRatio = mSpec.maxWideRatio.width / mSpec.maxWideRatio.height;
+        } else if (originalRatio < 1 && mSpec.minTallRatio != null) {
+            targetRatio = mSpec.minTallRatio.width / mSpec.minTallRatio.height;
+        }
+
+        if (targetRatio != null && targetRatio > originalRatio) {
+            targetHeight = originalWidth / targetRatio;
+            targetWidth = originalWidth;
+            isTooTall = true;
+        } else if (targetRatio != null && targetRatio < originalRatio) {
+            targetHeight = originalHeight;
+            targetWidth = originalHeight * targetRatio;
+            isTooWide = true;
+        }
+
+        String title = "";
+        String message = "";
+        if (isTooWide) {
+            title = context.getString(R.string.error_title_wide_image);
+            message = context.getString(R.string.error_message_wide_image);
+        } else if (isTooTall) {
+            title = context.getString(R.string.error_title_tall_image);
+            message = context.getString(R.string.error_message_tall_image);
+        }
+        if (isTooTall || isTooWide) {
+            item.cropWidth = targetWidth;
+            item.cropHeight = targetHeight;
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle(title);
+            builder.setMessage(message);
+            builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    mSelectedCollection.add(item);
+                    onRefreshAlbum();
+                }
+            });
+            builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    onRefreshAlbum();
+                }
+            });
+            builder.show();
+        } else {
+            mSelectedCollection.add(item);
+            onRefreshAlbum();
+        }
+
+    }
+
+    private void onRefreshAlbum() {
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                onItemSelected(null, null, 0, 0);
+            }
+        }, 300);
+
     }
 
     private void updateBottomToolbar() {
@@ -242,7 +352,7 @@ public class MatisseActivity extends AppCompatActivity implements
             intent.putExtra(BasePreviewActivity.EXTRA_DEFAULT_BUNDLE, mSelectedCollection.getDataWithBundle());
             startActivityForResult(intent, REQUEST_CODE_PREVIEW);
         } else if (v.getId() == R.id.button_apply) {
-            compressionAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            new CompressionAsyncTask(progressDialog, this, mSelectedCollection, this, mSpec).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
 
@@ -330,52 +440,32 @@ public class MatisseActivity extends AppCompatActivity implements
         }
     }
 
-    AsyncTask<Void, Void, Void> compressionAsyncTask = new AsyncTask<Void, Void, Void>() {
-        private ProgressDialog progressDialog = null;
+//    public ArrayList<Uri> selectedUris;
+//    public ArrayList<String> selectedPaths;
+//    public ArrayList<Item> items;
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
+    private void galleryAddPic(String path) {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        File f = new File(path);
+        Uri contentUri = Uri.fromFile(f);
+        mediaScanIntent.setData(contentUri);
+        this.sendBroadcast(mediaScanIntent);
+    }
 
-            progressDialog = ProgressDialog.show(MatisseActivity.this, "Carousell Pro", "Loading...", true, false);
-            progressDialog.show();
-        }
+    @Override
+    public void onCompressionDone() {
+        Intent result = new Intent();
 
-        @Override
-        protected Void doInBackground(Void... params) {
+        ArrayList<Uri> selectedUris = (ArrayList<Uri>) mSelectedCollection.asListOfUri();
+        result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
 
-            for (Item item : mSelectedCollection.asList()) {
-                try {
-                    CompressionUtils.compressImage(MatisseActivity.this, mSpec, item);
-                } catch (IOException e) {
+        ArrayList<String> selectedPaths = (ArrayList<String>) mSelectedCollection.asListOfString();
+        result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
 
-                }
-            }
+        result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION_ITEM, (ArrayList<Item>) mSelectedCollection.asList());
 
-            return null;
-        }
+        setResult(RESULT_OK, result);
+        finish();
 
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            super.onPostExecute(aVoid);
-            progressDialog.dismiss();
-            Intent result = new Intent();
-
-            ArrayList<Uri> selectedUris = (ArrayList<Uri>) mSelectedCollection.asListOfUri();
-            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION, selectedUris);
-
-            ArrayList<String> selectedPaths = (ArrayList<String>) mSelectedCollection.asListOfString();
-            result.putStringArrayListExtra(EXTRA_RESULT_SELECTION_PATH, selectedPaths);
-
-            result.putParcelableArrayListExtra(EXTRA_RESULT_SELECTION_ITEM, (ArrayList<Item>)mSelectedCollection.asList());
-
-            setResult(RESULT_OK, result);
-            finish();
-        }
-
-        @Override
-        protected void onProgressUpdate(Void... values) {
-            super.onProgressUpdate(values);
-        }
-    };
+    }
 }

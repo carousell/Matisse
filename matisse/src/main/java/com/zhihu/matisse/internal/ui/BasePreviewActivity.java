@@ -133,7 +133,8 @@ public abstract class BasePreviewActivity extends AppCompatActivity implements V
         if (v.getId() == R.id.button_back) {
             onBackPressed();
         } else if (v.getId() == R.id.button_apply) {
-//            compressionAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            sendBackResult(true);
+            finish();
         }
     }
 

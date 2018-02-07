@@ -11,8 +11,8 @@ import android.provider.MediaStore;
 
 import java.io.File;
 
-class RealPathUtil {
-  static String getRealPathFromURI(final Context context, final Uri uri) {
+public class RealPathUtil {
+  public static String getRealPathFromURI(final Context context, final Uri uri) {
 
       final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
 

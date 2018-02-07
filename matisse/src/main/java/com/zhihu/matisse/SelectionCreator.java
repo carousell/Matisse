@@ -329,4 +329,9 @@ public final class SelectionCreator {
         mSelectionSpec.minTallRatio = minTallRatio;
         return this;
     }
+
+    public SelectionCreator selectedImageIds(List<String> selectedImageIds) {
+        mSelectionSpec.selectedImageIds = selectedImageIds;
+        return this;
+    }
 }
