@@ -22,7 +22,6 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
-import android.provider.MediaStore;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -32,6 +31,9 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.animation.GlideAnimation;
+import com.bumptech.glide.request.target.SimpleTarget;
 import com.zhihu.matisse.R;
 import com.zhihu.matisse.internal.entity.Album;
 import com.zhihu.matisse.internal.entity.IncapableCause;
@@ -40,8 +42,6 @@ import com.zhihu.matisse.internal.entity.SelectionSpec;
 import com.zhihu.matisse.internal.model.SelectedItemCollection;
 import com.zhihu.matisse.internal.ui.widget.CheckView;
 import com.zhihu.matisse.internal.ui.widget.MediaGrid;
-
-import java.io.IOException;
 
 public class AlbumMediaAdapter extends
         RecyclerViewCursorAdapter<RecyclerView.ViewHolder> implements
@@ -190,87 +190,93 @@ public class AlbumMediaAdapter extends
         }
     }
 
-    private void checkAddItem(Context context, final Item item) {
+    private void checkAddItem(final Context context, final Item item) {
         if (assertAddSelection(context, item)) {
+            Glide.with(context)
+                    .load(item.getContentUri())
+                    .asBitmap()
+                    .into(new SimpleTarget<Bitmap>() {
+                        @Override
+                        public void onResourceReady(Bitmap bitmap, GlideAnimation<? super Bitmap> glideAnimation) {
 
-            // reset before crop or not
-            item.cropUrl = null;
-            item.cropWidth = null;
-            item.cropHeight = null;
+                            // reset before crop or not
+                            item.cropUrl = null;
+                            item.cropWidth = null;
+                            item.cropHeight = null;
 
-            boolean isTooWide = false;
-            boolean isTooTall = false;
+                            boolean isTooWide = false;
+                            boolean isTooTall = false;
 
-            Bitmap bitmap = null;
-            try {
-                bitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), item.getContentUri());
-            } catch (IOException e) {
-            }
+                            if (bitmap == null) {
+                                return;
+                            }
 
-            if (bitmap==null) {
-                return;
-            }
+                            double originalHeight = bitmap.getHeight();
+                            double originalWidth = bitmap.getWidth();
+                            double originalRatio = originalWidth / originalHeight;
 
-            double originalHeight = bitmap.getHeight();
-            double originalWidth = bitmap.getWidth();
-            double originalRatio = originalWidth/originalHeight;
+                            double targetWidth = bitmap.getWidth();
+                            double targetHeight = bitmap.getHeight();
+                            Double targetRatio = null;
+                            boolean isCrop = false;
 
-            double targetWidth = bitmap.getWidth();
-            double targetHeight = bitmap.getHeight();
-            Double targetRatio = null;
-            boolean isCrop = false;
+                            // Need crop?
+                            if (originalRatio > 1 && mSelectionSpec.maxWideRatio != null) { // width > height
+                                targetRatio = mSelectionSpec.maxWideRatio.width / mSelectionSpec.maxWideRatio.height;
+                            } else if (originalRatio < 1 && mSelectionSpec.minTallRatio != null) {
+                                targetRatio = mSelectionSpec.minTallRatio.width / mSelectionSpec.minTallRatio.height;
+                            }
 
-            // Need crop?
-            if (originalRatio > 1 && mSelectionSpec.maxWideRatio!=null) { // width > height
-                targetRatio = mSelectionSpec.maxWideRatio.width / mSelectionSpec.maxWideRatio.height;
-            } else if (originalRatio < 1 && mSelectionSpec.minTallRatio!=null) {
-                targetRatio = mSelectionSpec.minTallRatio.width / mSelectionSpec.minTallRatio.height;
-            }
+                            if (targetRatio != null && targetRatio > originalRatio) {
+                                targetHeight = originalWidth / targetRatio;
+                                targetWidth = originalWidth;
+                                isTooTall = true;
+                            } else if (targetRatio != null && targetRatio < originalRatio) {
+                                targetHeight = originalHeight;
+                                targetWidth = originalHeight * targetRatio;
+                                isTooWide = true;
+                            }
 
-            if (targetRatio!=null && targetRatio > originalRatio) {
-                targetHeight = originalWidth / targetRatio;
-                targetWidth = originalWidth;
-                isTooTall = true;
-            } else if (targetRatio!=null && targetRatio < originalRatio) {
-                targetHeight = originalHeight;
-                targetWidth = originalHeight * targetRatio;
-                isTooWide = true;
-            }
+                            String title = "";
+                            String message = "";
+                            if (isTooWide) {
+                                title = context.getString(R.string.error_title_wide_image);
+                                message = context.getString(R.string.error_message_wide_image);
+                            } else if (isTooTall) {
+                                title = context.getString(R.string.error_title_tall_image);
+                                message = context.getString(R.string.error_message_tall_image);
+                            }
+                            if (isTooTall || isTooWide) {
+                                item.cropWidth = targetWidth;
+                                item.cropHeight = targetHeight;
 
-            String title = "";
-            String message = "";
-            if (isTooWide) {
-                title = context.getString(R.string.error_title_wide_image);
-                message = context.getString(R.string.error_message_wide_image);
-            } else if (isTooTall) {
-                title = context.getString(R.string.error_title_tall_image);
-                message = context.getString(R.string.error_message_tall_image);
-            }
-            if (isTooTall || isTooWide) {
-                item.cropWidth = targetWidth;
-                item.cropHeight = targetHeight;
+                                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                                builder.setTitle(title);
+                                builder.setMessage(message);
+                                builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+                                        mSelectedCollection.add(item);
+                                        notifyCheckStateChanged();
+                                    }
+                                });
+                                builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
 
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle(title);
-                builder.setMessage(message);
-                builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        mSelectedCollection.add(item);
-                        notifyCheckStateChanged();
-                    }
-                });
-                builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
+                                    }
+                                });
+                                builder.show();
+                            } else {
+                                mSelectedCollection.add(item);
+                                notifyCheckStateChanged();
+                            }
+                        }
 
-                    }
-                });
-                builder.show();
-            } else {
-                mSelectedCollection.add(item);
-                notifyCheckStateChanged();
-            }
+
+                    });
+
+
         }
     }
 

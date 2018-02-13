@@ -15,11 +15,14 @@
  */
 package com.zhihu.matisse.ui;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -31,7 +34,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBar;
@@ -42,7 +45,11 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.animation.GlideAnimation;
+import com.bumptech.glide.request.target.SimpleTarget;
 import com.zhihu.matisse.MimeType;
 import com.zhihu.matisse.R;
 import com.zhihu.matisse.internal.entity.Album;
@@ -62,7 +69,6 @@ import com.zhihu.matisse.internal.utils.MediaStoreCompat;
 import com.zhihu.matisse.internal.utils.PathUtils;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -80,6 +86,7 @@ public class MatisseActivity extends AppCompatActivity implements
     public static final String EXTRA_RESULT_SELECTION_ITEM = "extra_result_selection_item";
     private static final int REQUEST_CODE_PREVIEW = 23;
     private static final int REQUEST_CODE_CAPTURE = 24;
+    private static final int MY_CAMERA_REQUEST_CODE = 105;
     private final AlbumCollection mAlbumCollection = new AlbumCollection();
     private MediaStoreCompat mMediaStoreCompat;
     private SelectedItemCollection mSelectedCollection = new SelectedItemCollection(this);
@@ -133,8 +140,12 @@ public class MatisseActivity extends AppCompatActivity implements
         mEmptyView = findViewById(R.id.empty_view);
 
         mSelectedCollection.onCreate(savedInstanceState);
-        for (int i=0; i<mSpec.selectedImageIds.size(); i++){
-            mSelectedCollection.add(new Item(Long.parseLong(mSpec.selectedImageIds.get(i)), MimeType.JPEG.toString(),0,0));
+        for (int i = 0; i < mSpec.selectedImageIds.size(); i++) {
+            try {
+                mSelectedCollection.add(new Item(Long.parseLong(mSpec.selectedImageIds.get(i)), MimeType.JPEG.toString(), 0, 0));
+            } catch (Exception e) {
+
+            }
         }
         updateBottomToolbar();
 
@@ -238,86 +249,95 @@ public class MatisseActivity extends AppCompatActivity implements
         }
     }
 
-    private void checkAddItem(Context context, final Item item) {
-        // reset before crop or not
-        item.cropUrl = null;
-        item.cropWidth = null;
-        item.cropHeight = null;
+    private void checkAddItem(final Context context, final Item item) {
+        Glide.with(context)
+                .load(item.getContentUri())
+                .asBitmap()
+                .into(new SimpleTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(Bitmap bitmap, GlideAnimation<? super Bitmap> glideAnimation) {
+                        // reset before crop or not
+                        item.cropUrl = null;
+                        item.cropWidth = null;
+                        item.cropHeight = null;
 
-        boolean isTooWide = false;
-        boolean isTooTall = false;
+                        boolean isTooWide = false;
+                        boolean isTooTall = false;
 
-        Bitmap bitmap = null;
-        try {
-            bitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), item.getContentUri());
-        } catch (IOException e) {
-        }
+//                        Bitmap bitmap = null;
+//                        try {
+//                            bitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), item.getContentUri());
+//                        } catch (IOException e) {
+//                        }
+//
+//                        if (bitmap == null) {
+//                            return;
+//                        }
 
-        if (bitmap == null) {
-            return;
-        }
+                        double originalHeight = bitmap.getHeight();
+                        double originalWidth = bitmap.getWidth();
+                        double originalRatio = originalWidth / originalHeight;
 
-        double originalHeight = bitmap.getHeight();
-        double originalWidth = bitmap.getWidth();
-        double originalRatio = originalWidth / originalHeight;
+                        double targetWidth = bitmap.getWidth();
+                        double targetHeight = bitmap.getHeight();
+                        Double targetRatio = null;
+                        boolean isCrop = false;
 
-        double targetWidth = bitmap.getWidth();
-        double targetHeight = bitmap.getHeight();
-        Double targetRatio = null;
-        boolean isCrop = false;
+                        // Need crop?
+                        if (originalRatio > 1 && mSpec.maxWideRatio != null) { // width > height
+                            targetRatio = mSpec.maxWideRatio.width / mSpec.maxWideRatio.height;
+                        } else if (originalRatio < 1 && mSpec.minTallRatio != null) {
+                            targetRatio = mSpec.minTallRatio.width / mSpec.minTallRatio.height;
+                        }
 
-        // Need crop?
-        if (originalRatio > 1 && mSpec.maxWideRatio != null) { // width > height
-            targetRatio = mSpec.maxWideRatio.width / mSpec.maxWideRatio.height;
-        } else if (originalRatio < 1 && mSpec.minTallRatio != null) {
-            targetRatio = mSpec.minTallRatio.width / mSpec.minTallRatio.height;
-        }
+                        if (targetRatio != null && targetRatio > originalRatio) {
+                            targetHeight = originalWidth / targetRatio;
+                            targetWidth = originalWidth;
+                            isTooTall = true;
+                        } else if (targetRatio != null && targetRatio < originalRatio) {
+                            targetHeight = originalHeight;
+                            targetWidth = originalHeight * targetRatio;
+                            isTooWide = true;
+                        }
 
-        if (targetRatio != null && targetRatio > originalRatio) {
-            targetHeight = originalWidth / targetRatio;
-            targetWidth = originalWidth;
-            isTooTall = true;
-        } else if (targetRatio != null && targetRatio < originalRatio) {
-            targetHeight = originalHeight;
-            targetWidth = originalHeight * targetRatio;
-            isTooWide = true;
-        }
+                        String title = "";
+                        String message = "";
+                        if (isTooWide) {
+                            title = context.getString(R.string.error_title_wide_image);
+                            message = context.getString(R.string.error_message_wide_image);
+                        } else if (isTooTall) {
+                            title = context.getString(R.string.error_title_tall_image);
+                            message = context.getString(R.string.error_message_tall_image);
+                        }
+                        if (isTooTall || isTooWide) {
+                            item.cropWidth = targetWidth;
+                            item.cropHeight = targetHeight;
 
-        String title = "";
-        String message = "";
-        if (isTooWide) {
-            title = context.getString(R.string.error_title_wide_image);
-            message = context.getString(R.string.error_message_wide_image);
-        } else if (isTooTall) {
-            title = context.getString(R.string.error_title_tall_image);
-            message = context.getString(R.string.error_message_tall_image);
-        }
-        if (isTooTall || isTooWide) {
-            item.cropWidth = targetWidth;
-            item.cropHeight = targetHeight;
+                            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                            builder.setTitle(title);
+                            builder.setMessage(message);
+                            builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    mSelectedCollection.add(item);
+                                    onRefreshAlbum();
+                                }
+                            });
+                            builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    onRefreshAlbum();
+                                }
+                            });
+                            builder.show();
+                        } else {
+                            mSelectedCollection.add(item);
+                            onRefreshAlbum();
+                        }
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setTitle(title);
-            builder.setMessage(message);
-            builder.setPositiveButton(context.getString(R.string.error_button_centre_crop), new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    mSelectedCollection.add(item);
-                    onRefreshAlbum();
-                }
-            });
-            builder.setNegativeButton(context.getString(R.string.error_button_pick_another), new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    onRefreshAlbum();
-                }
-            });
-            builder.show();
-        } else {
-            mSelectedCollection.add(item);
-            onRefreshAlbum();
-        }
 
+                    }
+                });
     }
 
     private void onRefreshAlbum() {
@@ -436,16 +456,20 @@ public class MatisseActivity extends AppCompatActivity implements
         return mSelectedCollection;
     }
 
+
+    @SuppressLint("NewApi")
     @Override
     public void capture() {
         if (mMediaStoreCompat != null) {
-            mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
+            if (checkSelfPermission(Manifest.permission.CAMERA)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA},
+                        MY_CAMERA_REQUEST_CODE);
+            } else {
+                mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
+            }
         }
     }
-
-//    public ArrayList<Uri> selectedUris;
-//    public ArrayList<String> selectedPaths;
-//    public ArrayList<Item> items;
 
     private void galleryAddPic(String path) {
         Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
@@ -470,5 +494,20 @@ public class MatisseActivity extends AppCompatActivity implements
         setResult(RESULT_OK, result);
         finish();
 
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == MY_CAMERA_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
+                Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
+            }
+
+        }
     }
 }
