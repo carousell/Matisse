@@ -86,7 +86,8 @@ public class MatisseActivity extends AppCompatActivity implements
     public static final String EXTRA_RESULT_SELECTION_ITEM = "extra_result_selection_item";
     private static final int REQUEST_CODE_PREVIEW = 23;
     private static final int REQUEST_CODE_CAPTURE = 24;
-    private static final int MY_CAMERA_REQUEST_CODE = 105;
+    private static final int PERMISSION_CAMERA_REQUEST_CODE = 105;
+    private static final int PERMISSION_STORAGE_REQUEST_CODE = 106;
     private final AlbumCollection mAlbumCollection = new AlbumCollection();
     private MediaStoreCompat mMediaStoreCompat;
     private SelectedItemCollection mSelectedCollection = new SelectedItemCollection(this);
@@ -101,6 +102,7 @@ public class MatisseActivity extends AppCompatActivity implements
 
     private ProgressDialog progressDialog = null;
 
+    @SuppressLint("NewApi")
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         // programmatically set theme before super.onCreate()
@@ -139,6 +141,12 @@ public class MatisseActivity extends AppCompatActivity implements
         mContainer = findViewById(R.id.container);
         mEmptyView = findViewById(R.id.empty_view);
 
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("Carousell Pro");
+        progressDialog.setMessage("Loading...");
+        progressDialog.setCancelable(false);
+        progressDialog.setIndeterminate(true);
+
         mSelectedCollection.onCreate(savedInstanceState);
         for (int i = 0; i < mSpec.selectedImageIds.size(); i++) {
             try {
@@ -149,21 +157,28 @@ public class MatisseActivity extends AppCompatActivity implements
         }
         updateBottomToolbar();
 
+        mAlbumCollection.onCreate(this, this);
+        mAlbumCollection.onRestoreInstanceState(savedInstanceState);
+
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    PERMISSION_STORAGE_REQUEST_CODE);
+        } else {
+            onSetupAlbum();
+        }
+
+    }
+
+    private void onSetupAlbum() {
         mAlbumsAdapter = new AlbumsAdapter(this, null, false);
         mAlbumsSpinner = new AlbumsSpinner(this);
         mAlbumsSpinner.setOnItemSelectedListener(this);
         mAlbumsSpinner.setSelectedTextView((TextView) findViewById(R.id.selected_album));
         mAlbumsSpinner.setPopupAnchorView(findViewById(R.id.toolbar));
         mAlbumsSpinner.setAdapter(mAlbumsAdapter);
-        mAlbumCollection.onCreate(this, this);
-        mAlbumCollection.onRestoreInstanceState(savedInstanceState);
         mAlbumCollection.loadAlbums();
-
-        progressDialog = new ProgressDialog(this);
-        progressDialog.setTitle("Carousell Pro");
-        progressDialog.setMessage("Loading...");
-        progressDialog.setCancelable(false);
-        progressDialog.setIndeterminate(true);
     }
 
     @Override
@@ -464,7 +479,7 @@ public class MatisseActivity extends AppCompatActivity implements
             if (checkSelfPermission(Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.CAMERA},
-                        MY_CAMERA_REQUEST_CODE);
+                        PERMISSION_CAMERA_REQUEST_CODE);
             } else {
                 mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
             }
@@ -500,14 +515,21 @@ public class MatisseActivity extends AppCompatActivity implements
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == MY_CAMERA_REQUEST_CODE) {
+        if (requestCode == PERMISSION_CAMERA_REQUEST_CODE) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
                 Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
             }
-
+        } else if (requestCode == PERMISSION_STORAGE_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                onSetupAlbum();
+                Toast.makeText(this, "Storage permission granted", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show();
+                finish();
+            }
         }
     }
 }
