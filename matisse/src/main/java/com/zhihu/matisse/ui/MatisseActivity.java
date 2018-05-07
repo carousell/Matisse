@@ -16,7 +16,6 @@
 package com.zhihu.matisse.ui;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -102,7 +101,6 @@ public class MatisseActivity extends AppCompatActivity implements
 
     private ProgressDialog progressDialog = null;
 
-    @SuppressLint("NewApi")
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         // programmatically set theme before super.onCreate()
@@ -160,14 +158,15 @@ public class MatisseActivity extends AppCompatActivity implements
         mAlbumCollection.onCreate(this, this);
         mAlbumCollection.onRestoreInstanceState(savedInstanceState);
 
-        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED)) {
             requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
                     PERMISSION_STORAGE_REQUEST_CODE);
         } else {
             onSetupAlbum();
         }
+
 
     }
 
@@ -472,17 +471,17 @@ public class MatisseActivity extends AppCompatActivity implements
     }
 
 
-    @SuppressLint("NewApi")
     @Override
     public void capture() {
         if (mMediaStoreCompat != null) {
-            if (checkSelfPermission(Manifest.permission.CAMERA)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.CAMERA},
                         PERMISSION_CAMERA_REQUEST_CODE);
             } else {
                 mMediaStoreCompat.dispatchCaptureIntent(this, REQUEST_CODE_CAPTURE);
             }
+
         }
     }
 

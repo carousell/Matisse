@@ -253,7 +253,9 @@ public class SelectedItemCollection {
     }
 
     public int checkedNumOf(Item item) {
+        SelectionSpec spec = SelectionSpec.getInstance();
+
         int index = new ArrayList<>(mItems).indexOf(item);
-        return index == -1 ? CheckView.UNCHECKED : index + 1;
+        return index == -1 ? CheckView.UNCHECKED : index + 1 + spec.ignoreSelectionNumber;
     }
 }

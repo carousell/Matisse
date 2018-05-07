@@ -58,6 +58,7 @@ public final class SelectionSpec {
     public Ratio minTallRatio = null;
 
     public List<String> selectedImageIds = null;
+    public int ignoreSelectionNumber = 0;
 
     private SelectionSpec() {
     }
@@ -99,6 +100,8 @@ public final class SelectionSpec {
         minTallRatio = null;
 
         selectedImageIds = null;
+
+        ignoreSelectionNumber = 0;
     }
 
     public boolean singleSelectionModeEnabled() {

@@ -334,4 +334,11 @@ public final class SelectionCreator {
         mSelectionSpec.selectedImageIds = selectedImageIds;
         return this;
     }
+
+    public SelectionCreator ignoreSelectionNumber(int ignoreSelectionNumber) {
+        mSelectionSpec.ignoreSelectionNumber = ignoreSelectionNumber;
+        return this;
+    }
+
+
 }
