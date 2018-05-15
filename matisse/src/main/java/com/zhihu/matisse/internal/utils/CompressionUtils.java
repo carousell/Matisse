@@ -17,6 +17,9 @@ import java.util.concurrent.ExecutionException;
 public class CompressionUtils {
 
     public static boolean compressImage(Context context, SelectionSpec spec, Item item) throws IOException {
+        if (spec.maxWidth==null || spec.maxHeight==null) {
+            return false;
+        }
         Bitmap bmp = null;
         try {
             bmp = Glide.with(context)
